@@ -22,6 +22,13 @@ namespace Dialogue_FCS
 		DC_ARMOUR_LEVEL
 	}
 
+	enum itemType_extended
+	{
+		// 1000 is used by WorldStatesPlugin
+		ITEM_ANY = 1001
+	}
+
+
 	public class DialoguePlugin : IPlugin
 	{
 		public int Init(Assembly assembly)
@@ -60,6 +67,81 @@ namespace Dialogue_FCS
 					.Invoke(conditionDefaults, new object[]{
 					Enum.ToObject(AccessTools.TypeByName("forgotten_construction_set.DialogConditionEnum"),(int)DialogConditionEnum_extended.DC_STAT_LEVEL_MODIFIED),
 					(AccessTools.TypeByName("forgotten_construction_set.StatsEnumerated").GetMember("STAT_NONE").First() as FieldInfo).GetValue(null) });
+			}
+		}
+
+		// patch to add ITEM_ANY type that allows refferences to any ITEM sub-type
+		[HarmonyPatch("forgotten_construction_set.ItemFilter", "Test")]
+		public static class ItemFilter_Test_Patch
+		{
+			public static int NULL_ITEM = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("NULL_ITEM").First() as FieldInfo).GetValue(null);
+
+			public static int ITEM = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("ITEM").First() as FieldInfo).GetValue(null);
+			public static int WEAPON = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("WEAPON").First() as FieldInfo).GetValue(null);
+			public static int ARMOUR = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("ARMOUR").First() as FieldInfo).GetValue(null);
+			public static int CROSSBOW = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("CROSSBOW").First() as FieldInfo).GetValue(null);
+			public static int CONTAINER = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("CONTAINER").First() as FieldInfo).GetValue(null);
+			public static int NEST_ITEM = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("NEST_ITEM").First() as FieldInfo).GetValue(null);
+			public static int MAP_ITEM = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("NEST_ITEM").First() as FieldInfo).GetValue(null);
+			public static int LIMB_REPLACEMENT = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("NEST_ITEM").First() as FieldInfo).GetValue(null);
+			[HarmonyPrefix]
+			static void Prefix(object __instance, object item, out int __state)
+			{
+				// backup type filter
+				__state = (int)Traverse.Create(__instance).Field("type").GetValue();
+				// clear type filter
+				if (__state == (int)itemType_extended.ITEM_ANY)
+				{
+					Traverse.Create(__instance).Field("type").SetValue(NULL_ITEM);
+				}
+				else
+				{
+					// optimization - disable the postfix to make the filter faster
+					__state = NULL_ITEM;
+				}
+			}
+			[HarmonyPostfix]
+			static void Postfix(ref bool __result, object __instance, object item, int __state)
+			{
+				if (__state == (int)itemType_extended.ITEM_ANY)
+				{
+					// load backup type filter
+					Traverse.Create(__instance).Field("type").SetValue(__state);
+					// we need to do type filtering ourselves
+					int type = (int)Traverse.Create(item).Property("type").GetValue();
+					__result = __result && (type == ITEM || type == WEAPON || type == ARMOUR || type == CROSSBOW
+						|| type == CONTAINER || type == NEST_ITEM || type == MAP_ITEM || type == LIMB_REPLACEMENT);
+				}
+			}
+		}
+		// patch to suppress incorrect refference type errors for "ITEM_ANY"
+		[HarmonyPatch("forgotten_construction_set.ErrorWindow", "addError")]
+		public static class ErrorWindow_addError_Patch
+		{
+			// forgotten_construction_set.ErrorCode.ReferenceToIncorrectType
+			public static int ReferenceToIncorrectType = (int)(AccessTools.TypeByName("forgotten_construction_set.ErrorCode").GetMember("ReferenceToIncorrectType").First() as FieldInfo).GetValue(null);
+
+			[HarmonyPostfix]
+			static bool Prefix(object type, object item, string mod, string[] textArgs)
+			{
+				if ((int)type == ReferenceToIncorrectType)
+				{
+					if (textArgs != null && textArgs.Length >= 4)
+					{
+						if (textArgs[2] == "ITEM_ANY")
+						{
+							if(textArgs[3] == "ITEM" || textArgs[3] == "WEAPON" || textArgs[3] == "ARMOUR"
+								|| textArgs[3] == "CROSSBOW" || textArgs[3] == "CONTAINER" || textArgs[3] == "NEST_ITEM"
+								|| textArgs[3] == "MAP_ITEM" || textArgs[3] == "LIMB_REPLACEMENT")
+							{
+								// drop call and suppress error
+								return false;
+							}
+						} 
+					}
+				}
+				// default case - run original implementation
+				return true;
 			}
 		}
 	}
