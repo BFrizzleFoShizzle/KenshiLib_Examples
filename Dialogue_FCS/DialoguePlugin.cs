@@ -82,8 +82,8 @@ namespace Dialogue_FCS
 			public static int CROSSBOW = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("CROSSBOW").First() as FieldInfo).GetValue(null);
 			public static int CONTAINER = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("CONTAINER").First() as FieldInfo).GetValue(null);
 			public static int NEST_ITEM = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("NEST_ITEM").First() as FieldInfo).GetValue(null);
-			public static int MAP_ITEM = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("NEST_ITEM").First() as FieldInfo).GetValue(null);
-			public static int LIMB_REPLACEMENT = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("NEST_ITEM").First() as FieldInfo).GetValue(null);
+			public static int MAP_ITEM = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("MAP_ITEM").First() as FieldInfo).GetValue(null);
+			public static int LIMB_REPLACEMENT = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("LIMB_REPLACEMENT").First() as FieldInfo).GetValue(null);
 			[HarmonyPrefix]
 			static void Prefix(object __instance, object item, out int __state)
 			{
