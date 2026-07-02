@@ -25,7 +25,8 @@ namespace Dialogue_FCS
 	enum itemType_extended
 	{
 		// 1000 is used by WorldStatesPlugin
-		ITEM_ANY = 1001
+		ITEM_ANY = 1001,
+		CHARACTER_ANY
 	}
 
 
@@ -84,13 +85,19 @@ namespace Dialogue_FCS
 			public static int NEST_ITEM = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("NEST_ITEM").First() as FieldInfo).GetValue(null);
 			public static int MAP_ITEM = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("MAP_ITEM").First() as FieldInfo).GetValue(null);
 			public static int LIMB_REPLACEMENT = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("LIMB_REPLACEMENT").First() as FieldInfo).GetValue(null);
-			[HarmonyPrefix]
+
+			// Note: I don't think HUMAN_CHARACTER is used?
+            public static int HUMAN_CHARACTER = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("HUMAN_CHARACTER").First() as FieldInfo).GetValue(null);
+            public static int ANIMAL_CHARACTER = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("ANIMAL_CHARACTER").First() as FieldInfo).GetValue(null);
+            public static int CHARACTER = (int)(AccessTools.TypeByName("forgotten_construction_set.itemType").GetMember("CHARACTER").First() as FieldInfo).GetValue(null);
+
+            [HarmonyPrefix]
 			static void Prefix(object __instance, object item, out int __state)
 			{
 				// backup type filter
 				__state = (int)Traverse.Create(__instance).Field("type").GetValue();
 				// clear type filter
-				if (__state == (int)itemType_extended.ITEM_ANY)
+				if (__state == (int)itemType_extended.ITEM_ANY || __state == (int)itemType_extended.CHARACTER_ANY)
 				{
 					Traverse.Create(__instance).Field("type").SetValue(NULL_ITEM);
 				}
@@ -111,8 +118,16 @@ namespace Dialogue_FCS
 					int type = (int)Traverse.Create(item).Property("type").GetValue();
 					__result = __result && (type == ITEM || type == WEAPON || type == ARMOUR || type == CROSSBOW
 						|| type == CONTAINER || type == NEST_ITEM || type == MAP_ITEM || type == LIMB_REPLACEMENT);
-				}
-			}
+                }
+                else if (__state == (int)itemType_extended.CHARACTER_ANY)
+                {
+                    // load backup type filter
+                    Traverse.Create(__instance).Field("type").SetValue(__state);
+                    // we need to do type filtering ourselves
+                    int type = (int)Traverse.Create(item).Property("type").GetValue();
+                    __result = __result && (type == CHARACTER || type == HUMAN_CHARACTER || type == ANIMAL_CHARACTER);
+                }
+            }
 		}
 		// patch to suppress incorrect refference type errors for "ITEM_ANY"
 		[HarmonyPatch("forgotten_construction_set.ErrorWindow", "addError")]
@@ -137,8 +152,16 @@ namespace Dialogue_FCS
 								// drop call and suppress error
 								return false;
 							}
-						} 
-					}
+                        }
+                        else if (textArgs[2] == "CHARACTER_ANY")
+                        {
+                            if (textArgs[3] == "CHARACTER" || textArgs[3] == "HUMAN_CHARACTER" || textArgs[3] == "ANIMAL_CHARACTER")
+                            {
+                                // drop call and suppress error
+                                return false;
+                            }
+                        }
+                    }
 				}
 				// default case - run original implementation
 				return true;
